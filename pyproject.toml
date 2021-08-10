@@ -1,0 +1,5 @@
+# PEP 517 compatible config for setuptools
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

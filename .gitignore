@@ -1,0 +1,10 @@
+# setuptools garbage
+*.egg-info
+/build
+/dist
+
+# cpython cache
+__pycache__
+
+# testing venv
+/venv
