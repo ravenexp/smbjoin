@@ -92,5 +92,21 @@ def net_ads_join() -> None:
         print("error: SAM hive file not found", file=sys.stderr)
         sys.exit(403)
 
-    # STUB
-    print("Joined 'host' to realm 'domain.com'")
+    secrets = smbjoin.get_ads_join_secrets(
+        system_hive_path, security_hive_path, sam_hive_path
+    )
+
+    hostname = secrets["hostname"]
+    domain = secrets["ads_domain"]
+    realm = secrets["dns_domain"]
+
+    print(f"Using short domain name -- {domain}")
+
+    if args.json:
+        output = os.path.splitext(args.output)[0] + ".json"
+        smbjoin.write_secrets_json(output, secrets)
+        return
+
+    smbjoin.write_secrets_tdb(args.output, secrets)
+
+    print(f"Joined '{hostname}' to realm '{realm}'")
