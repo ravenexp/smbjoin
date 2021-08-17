@@ -92,9 +92,18 @@ def net_ads_join() -> None:
         print("error: SAM hive file not found", file=sys.stderr)
         sys.exit(403)
 
-    secrets = smbjoin.get_ads_join_secrets(
-        system_hive_path, security_hive_path, sam_hive_path
-    )
+    try:
+        secrets = smbjoin.get_ads_join_secrets(
+            system_hive_path, security_hive_path, sam_hive_path
+        )
+    except OSError as err:
+        logger.warning("Registry hive access failed: %s", err.__cause__)
+        logger.critical("Extracting secrets failed: %s", err)
+        print(
+            "error: Domain machine account data was not found in the registry",
+            file=sys.stderr,
+        )
+        sys.exit(404)
 
     hostname = secrets["hostname"]
     domain = secrets["ads_domain"]

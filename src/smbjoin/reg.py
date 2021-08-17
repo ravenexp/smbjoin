@@ -7,14 +7,25 @@ and the LSA secrets from the registry files.
 
 from typing import Dict
 
+import logging
+
 # TODO: Improve regipy typing annotations and mark it as typed
 from regipy import RegistryHive  # type: ignore
+from regipy.exceptions import RegistryKeyNotFoundException  # type: ignore
 from regipy.plugins import (  # type: ignore
     BootKeyPlugin,
     HostDomainNamePlugin,
     DomainSidPlugin,
     LocalSidPlugin,
 )
+
+# Encrypted LSA encryption key location
+LSA_ENC_KEY_PATH = r"\Policy\PolEKList"
+
+# Encrypted machine account password location
+LSA_MACHINE_ACC_PATH = r"\Policy\Secrets\$MACHINE.ACC\CurrVal"
+
+logger = logging.getLogger(__name__)
 
 
 def get_registry_secrets(
@@ -54,13 +65,32 @@ def get_registry_secrets(
         if entry["machine_sid"] is not None:
             secrets["machine_sid"] = entry["machine_sid"]
 
+    # Extract Windows Boot Key for the LSA secrets decryption
     bootkey_plugin = BootKeyPlugin(system_hive)
     bootkey_plugin.run()
 
     for entry in bootkey_plugin.entries:
         bootkey = entry["key"]
 
+    logger.debug("Found BootKey: %s", bootkey.hex())
+
+    # Extract the encrypted LSA encryption key
+    lsa_ek_key = security_hive.get_key(LSA_ENC_KEY_PATH)
+    lsa_enc_key = lsa_ek_key.get_value()
+
+    logger.debug("Found raw LSAEncKey: %s", lsa_enc_key.hex())
+
+    # Extract the encrypted machine account password
+    try:
+        machine_acc_key = security_hive.get_key(LSA_MACHINE_ACC_PATH)
+    except RegistryKeyNotFoundException as err:
+        raise FileNotFoundError("Machine account password key does not exist") from err
+
+    machine_acc = machine_acc_key.get_value()
+
+    logger.debug("Found raw $MACHINE.ACC: %s", machine_acc.hex())
+
     # STUB
-    secrets["machine_password"] = bootkey.hex()
+    secrets["machine_password"] = machine_acc.hex()
 
     return secrets
