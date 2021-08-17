@@ -6,9 +6,12 @@ Defines the high level smbjoin package API functions.
 
 from typing import Dict, Union
 
+import logging
 import json
 
-from smbjoin import util
+from smbjoin import reg, util
+
+logger = logging.getLogger(__name__)
 
 
 def get_ads_join_secrets(
@@ -19,15 +22,28 @@ def get_ads_join_secrets(
     from the Windows registry files.
     """
 
-    # STUB
-    return {
-        "hostname": "HOSTNAME",
-        "ads_domain": "DOMAIN",
-        "dns_domain": "domain.company.com",
-        "domain_sid": "S-1-5-21-4-5-6",
-        "machine_sid": "S-1-5-21-6-5-4",
-        "machine_password": "QwErTyUiOp",
-    }
+    secrets = reg.get_registry_secrets(
+        system_hive_path, security_hive_path, sam_hive_path
+    )
+
+    # Secrets dict structure:
+    # {
+    #    "hostname": "HOSTNAME",
+    #    "ads_domain": "DOMAIN",
+    #    "dns_domain": "domain.company.com",
+    #    "domain_sid": "S-1-5-21-4-5-6",
+    #    "machine_sid": "S-1-5-21-6-5-4",
+    #    "machine_password": "QwErTyUiOp",
+    # }
+
+    logger.info("Using hostname: '%s'", secrets["hostname"])
+    logger.info("Using ADS domain: '%s'", secrets["ads_domain"])
+    logger.info("Using domain FQDN: '%s'", secrets["dns_domain"])
+    logger.info("Using domain SID: '%s'", secrets["domain_sid"])
+    logger.info("Using local machine SID: '%s'", secrets["machine_sid"])
+    logger.info("Using machine password: '%s'", secrets["machine_password"])
+
+    return secrets
 
 
 def write_secrets_tdb(secrets_path: str, secrets: Dict[str, str]) -> None:
