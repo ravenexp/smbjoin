@@ -4,9 +4,11 @@ Package as a Python library interface module
 Defines the high level smbjoin package API functions.
 """
 
-from typing import Dict
+from typing import Dict, Union
 
 import json
+
+from smbjoin import util
 
 
 def get_ads_join_secrets(
@@ -22,8 +24,8 @@ def get_ads_join_secrets(
         "hostname": "HOSTNAME",
         "ads_domain": "DOMAIN",
         "dns_domain": "domain.company.com",
-        "domain_sid": "S-1-2-3-4-5-6",
-        "machine_sid": "S-1-2-3-6-5-4",
+        "domain_sid": "S-1-5-21-4-5-6",
+        "machine_sid": "S-1-5-21-6-5-4",
         "machine_password": "QwErTyUiOp",
     }
 
@@ -35,7 +37,31 @@ def write_secrets_tdb(secrets_path: str, secrets: Dict[str, str]) -> None:
     Convert the key names and value data formats to the ones used by Samba.
     """
 
-    # STUB
+    tdb: Dict[str, Union[str, bytes]] = dict()
+
+    # Store SEC_CHANNEL_TYPE constant
+    sec_ch_key = "SECRETS/MACHINE_SEC_CHANNEL_TYPE/" + secrets["ads_domain"]
+    tdb[sec_ch_key] = b"\x02\x00\x00\x00"
+
+    # Store machine password string
+    passwd_key = "SECRETS/MACHINE_PASSWORD/" + secrets["ads_domain"]
+    tdb[passwd_key] = secrets["machine_password"]
+
+    # Store DES salting principal
+    realm = secrets["dns_domain"].upper()
+    principal = "host/" + secrets["hostname"].lower() + "." + secrets["dns_domain"]
+    salt_key = "SECRETS/SALTING_PRINCIPAL/DES/" + realm
+    tdb[salt_key] = f"{principal}@{realm}"
+
+    # Store domain SID + padding to 68 bytes
+    domain_sid_key = "SECRETS/SID/" + secrets["ads_domain"]
+    tdb[domain_sid_key] = util.sid_encode(secrets["domain_sid"]) + bytes(44)
+
+    # Store local machine SID + padding to 68 bytes
+    machine_sid_key = "SECRETS/SID/" + secrets["hostname"]
+    tdb[machine_sid_key] = util.sid_encode(secrets["machine_sid"]) + bytes(44)
+
+    util.tdb_save(tdb, secrets_path)
 
 
 def write_secrets_json(secrets_path: str, secrets: Dict[str, str]) -> None:
