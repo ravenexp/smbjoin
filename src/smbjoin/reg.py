@@ -19,6 +19,8 @@ from regipy.plugins import (  # type: ignore
     LocalSidPlugin,
 )
 
+from smbjoin import crypt
+
 # Encrypted LSA encryption key location
 LSA_ENC_KEY_PATH = r"\Policy\PolEKList"
 
@@ -80,6 +82,14 @@ def get_registry_secrets(
 
     logger.debug("Found raw LSAEncKey: %s", lsa_enc_key.hex())
 
+    # Decrypt the LSA encryption key secret first
+    lsa_dec_key = crypt.lsa_decrypt_secret(lsa_enc_key, bootkey)
+
+    # Extract the 256-bit LSA encryption key from the decrypted secret plaintext
+    lsa_key = lsa_dec_key[68:100]
+
+    logger.debug("Decrypted LSAKey: %s", lsa_key.hex())
+
     # Extract the encrypted machine account password
     try:
         machine_acc_key = security_hive.get_key(LSA_MACHINE_ACC_PATH)
@@ -90,7 +100,17 @@ def get_registry_secrets(
 
     logger.debug("Found raw $MACHINE.ACC: %s", machine_acc.hex())
 
-    # STUB
-    secrets["machine_password"] = machine_acc.hex()
+    # Decrypt the machine account secret using the obtained LSA key
+    machine_dec = crypt.lsa_decrypt_secret(machine_acc, lsa_key)
+
+    logger.debug("Decrypted $MACHINE.ACC: %s", machine_dec.hex())
+
+    # Extract the UTF-16 encoded machine account password
+    # from the decrypted secret plaintext
+    machine_password = machine_dec[16:-16].decode("utf-16-le")
+
+    logger.debug("Decrypted machine password: %s", machine_password)
+
+    secrets["machine_password"] = machine_password
 
     return secrets
